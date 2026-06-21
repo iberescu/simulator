@@ -53,10 +53,12 @@ function isMobileUA(ua) {
   return /\bMobile\b/i.test(ua) || /iPhone|iPod|Android.*Mobile/i.test(ua);
 }
 function platformFromUA(ua) {
+  // Order matters: iOS UAs contain "Mac OS X" and Android UAs contain "Linux", so test the
+  // more specific mobile platforms before the desktop substrings they embed.
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'iOS';
+  if (/Android/i.test(ua)) return 'Android';
   if (/Windows/i.test(ua)) return 'Windows';
   if (/Macintosh|Mac OS X/i.test(ua)) return 'macOS';
-  if (/Android/i.test(ua)) return 'Android';
-  if (/iPhone|iPad|iPod/i.test(ua)) return 'iOS';
   if (/Linux/i.test(ua)) return 'Linux';
   return 'Windows';
 }
