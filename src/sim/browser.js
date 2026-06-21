@@ -55,11 +55,11 @@ async function applyUaOverride(page, fp) {
   if (!fp || !fp.uaMetadata) return;
   try {
     const client = await page.context().newCDPSession(page);
-    // Note: do NOT set acceptLanguage here — the context already sends Accept-Language via
-    // extraHTTPHeaders. Setting it in both places makes Chromium emit a malformed
-    // "en-US,en;q=0.9;q=0.9" (a clear bot tell).
+    // acceptLanguage takes a plain comma list; Chrome appends the q-weights itself, yielding the
+    // canonical "en-US,en;q=0.9". (This is the single source of Accept-Language — see newVisitContext.)
     await client.send('Emulation.setUserAgentOverride', {
       userAgent: fp.userAgent,
+      acceptLanguage: 'en-US,en',
       platform: fp.uaMetadata.platform,
       userAgentMetadata: fp.uaMetadata,
     });
@@ -79,7 +79,8 @@ async function newVisitContext(fp, proxy) {
     locale: fp.locale,
     timezoneId: fp.timezoneId,
     proxy: proxy ? { server: proxy.server, username: proxy.username, password: proxy.password } : undefined,
-    extraHTTPHeaders: { 'Accept-Language': `${fp.locale},en;q=0.9` },
+    // Accept-Language is set via the CDP UA override (applyUaOverride) so it stays a single,
+    // well-formed value; setting it here too produced a malformed "en-US,en;q=0.9;q=0.9".
     ignoreHTTPSErrors: true,
     serviceWorkers: 'block',
   });
