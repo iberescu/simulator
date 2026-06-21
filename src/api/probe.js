@@ -18,20 +18,50 @@ function clientIp(req) {
   return xff || (req.socket && req.socket.remoteAddress) || '';
 }
 
+// Headers injected by our own edge (Caddy) rather than the client — excluded from the order view
+// so what remains reflects what the browser actually sent.
+const EDGE_HEADERS = new Set(['x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-host', 'x-real-ip', 'via', 'forwarded', 'host', 'connection']);
+
+function headerOrder(req) {
+  const order = [];
+  for (let i = 0; i < req.rawHeaders.length; i += 2) {
+    const name = req.rawHeaders[i].toLowerCase();
+    if (!EDGE_HEADERS.has(name)) order.push(req.rawHeaders[i]); // preserve original case
+  }
+  return order;
+}
+
 function record(req) {
+  const H = req.headers;
   const h = {
     t: new Date().toISOString(),
     ip: clientIp(req),
-    ua: req.headers['user-agent'] || '',
-    lang: req.headers['accept-language'] || '',
-    sec_ch_ua: req.headers['sec-ch-ua'] || '',
-    sec_ch_ua_platform: req.headers['sec-ch-ua-platform'] || '',
-    sec_ch_ua_mobile: req.headers['sec-ch-ua-mobile'] || '',
     path: req.path,
     page: String(req.query.p || ''),
     cid: String(req.query.cid || ''),
     utm_source: String(req.query.utm_source || ''),
-    referer: req.headers['referer'] || '',
+    // identity
+    ua: H['user-agent'] || '',
+    referer: H['referer'] || H['referrer'] || '',
+    // content negotiation (real browsers always send these on a navigation)
+    accept: H['accept'] || '',
+    accept_encoding: H['accept-encoding'] || '',
+    accept_language: H['accept-language'] || '',
+    upgrade_insecure_requests: H['upgrade-insecure-requests'] || '',
+    priority: H['priority'] || '',
+    cache_control: H['cache-control'] || '',
+    dnt: H['dnt'] || '',
+    // Fetch Metadata — the highest-signal anti-bot tell for navigations
+    sec_fetch_site: H['sec-fetch-site'] || '',
+    sec_fetch_mode: H['sec-fetch-mode'] || '',
+    sec_fetch_dest: H['sec-fetch-dest'] || '',
+    sec_fetch_user: H['sec-fetch-user'] || '',
+    // Client Hints (must agree with the UA)
+    sec_ch_ua: H['sec-ch-ua'] || '',
+    sec_ch_ua_mobile: H['sec-ch-ua-mobile'] || '',
+    sec_ch_ua_platform: H['sec-ch-ua-platform'] || '',
+    // header order/case as received (Caddy-injected headers removed)
+    header_order: headerOrder(req),
   };
   hits.push(h);
   while (hits.length > MAX) hits.shift();
