@@ -127,7 +127,9 @@ function makeTarball() {
   const out = path.join(ROOT, 'project.tgz');
   if (fs.existsSync(out)) fs.unlinkSync(out);
   // List explicit paths (broad --exclude=data also matches src/data and drops files).
-  const r = sh('tar', ['czf', out, '--exclude=id_ed25519*', '--exclude=scripts/deploy/.ssh',
+  // --force-local: on Windows the absolute output path (C:\...) otherwise looks like a remote
+  // host:path to GNU tar ("Cannot connect to C"). Treat the colon as a local filename.
+  const r = sh('tar', ['--force-local', '-czf', out, '--exclude=id_ed25519*', '--exclude=scripts/deploy/.ssh',
     'package.json', 'package-lock.json', 'Dockerfile',
     'docker-compose.yml', 'docker-compose.prod.yml', 'Caddyfile',
     'src', 'scripts', 'config'], { cwd: ROOT });
