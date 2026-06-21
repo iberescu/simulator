@@ -5,6 +5,7 @@ const db = require('../db');
 const log = require('../logger').child({ mod: 'api' });
 const scheduler = require('../scheduler/cron');
 const monitor = require('./monitor');
+const probe = require('./probe');
 
 function validateTargetUrl(raw) {
   let u;
@@ -99,6 +100,7 @@ function createApp() {
   });
 
   monitor.mount(app); // token-gated /__monitor live dashboard (no-op unless MONITOR_TOKEN set)
+  probe.mount(app);   // /__probe controlled test target (records exit IP + UA per hit)
 
   app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 
