@@ -208,6 +208,36 @@ function createApp() {
     res.json({ id: site.id, status: 'active' });
   });
 
+  // List campaigns (operator-only) — handy for finding an id/url to remove.
+  app.get('/api/campaigns', requireApiKey, (req, res) => {
+    res.json({
+      campaigns: db.listSites().map((s) => ({
+        id: s.id, url: s.url, status: s.status, customer: s.customer_name, created_at: s.created_at,
+      })),
+    });
+  });
+
+  // Remove campaign(s) by URL (operator-only). url via JSON body or ?url=. Deletes the campaign and
+  // ALL of its data (visits, runs, plans, strategies, crawls).
+  app.delete('/api/campaigns', requireApiKey, (req, res) => {
+    const url = ((req.body && req.body.url) || req.query.url || '').trim();
+    if (!url) return res.status(400).json({ error: 'url required (JSON body { url } or ?url=)' });
+    const sites = db.getSitesByUrl(url);
+    if (!sites.length) return res.status(404).json({ error: 'no campaign with that url' });
+    const removed = sites.map((s) => ({ id: s.id, ...db.deleteSite(s.id) }));
+    log.info('campaigns removed by url', { url, count: removed.length });
+    res.json({ url, count: removed.length, removed });
+  });
+
+  // Remove one campaign by id (operator-only). Deletes the campaign and ALL of its data.
+  app.delete('/api/campaigns/:id', requireApiKey, (req, res) => {
+    const site = db.getSite(req.params.id);
+    if (!site) return res.status(404).json({ error: 'campaign not found' });
+    const removed = db.deleteSite(site.id);
+    log.info('campaign removed', { id: site.id, url: site.url, removed });
+    res.json({ id: site.id, url: site.url, removed });
+  });
+
   app.use((req, res) => res.status(404).json({ error: 'not found' }));
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {

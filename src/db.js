@@ -176,6 +176,21 @@ function setSiteStatus(id, status) {
   return getDb().prepare('UPDATE sites SET status=?, stopped_at=?, updated_at=? WHERE id=?')
     .run(status, stopped, nowIso(), id);
 }
+const getSitesByUrl = (url) => getDb().prepare('SELECT * FROM sites WHERE url = ? ORDER BY created_at DESC').all(url);
+
+// Remove a site and ALL of its data (no FK cascade in SQLite here, so delete children explicitly).
+function deleteSite(id) {
+  const db = getDb();
+  const tx = db.transaction((siteId) => ({
+    visits: db.prepare('DELETE FROM visits WHERE site_id=?').run(siteId).changes,
+    runs: db.prepare('DELETE FROM runs WHERE site_id=?').run(siteId).changes,
+    plans: db.prepare('DELETE FROM plans WHERE site_id=?').run(siteId).changes,
+    strategies: db.prepare('DELETE FROM strategies WHERE site_id=?').run(siteId).changes,
+    crawls: db.prepare('DELETE FROM crawls WHERE site_id=?').run(siteId).changes,
+    site: db.prepare('DELETE FROM sites WHERE id=?').run(siteId).changes,
+  }));
+  return tx(id);
+}
 
 // ---------- crawls ----------
 function saveCrawl(siteId, c) {
@@ -293,6 +308,7 @@ const deviceBreakdown = (siteId) =>
 module.exports = {
   getDb, migrate, uuid, newToken, nowIso, dayKey,
   createSite, getSite, getSiteByToken, listSites, listActiveSites, setSiteStatus,
+  getSitesByUrl, deleteSite,
   saveCrawl, getLatestCrawl,
   saveStrategies, getLatestStrategies,
   getPlan, savePlan,
