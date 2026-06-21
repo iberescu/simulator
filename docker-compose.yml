@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    image: ad-campaigns:latest
+    container_name: ad-campaigns
+    env_file: .env
+    environment:
+      - DATABASE_PATH=/app/data/campaigns.db
+      - HEADLESS=true
+    ports:
+      - "8080:8080"
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+    shm_size: "1gb"
+    init: true
+
+volumes:
+  app-data:

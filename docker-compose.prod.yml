@@ -1,0 +1,37 @@
+services:
+  app:
+    build: .
+    image: ad-campaigns:latest
+    container_name: ad-campaigns
+    env_file: .env
+    environment:
+      - DATABASE_PATH=/app/data/campaigns.db
+      - HEADLESS=true
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+    shm_size: "1gb"
+    init: true
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2
+    container_name: ad-campaigns-caddy
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DEPLOY_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  app-data:
+  caddy-data:
+  caddy-config:

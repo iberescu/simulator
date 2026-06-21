@@ -1,0 +1,10 @@
+node_modules
+data
+.env
+.git
+.gitignore
+*.log
+project.tgz
+npm-debug.log*
+scripts/deploy/.ssh
+README.md

@@ -1,0 +1,10 @@
+node_modules/
+data/
+*.db
+*.db-*
+.env
+*.log
+project.tgz
+scripts/deploy/.ssh/
+.DS_Store
+.claude/settings.local.json

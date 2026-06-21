@@ -1,0 +1,26 @@
+{
+  "name": "ad-campaigns",
+  "version": "1.0.0",
+  "description": "Ad-campaign traffic for pre-launch analytics testing: crawl + Gemini behaviour synthesis + humanized Playwright visits behind rotating proxies.",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "preflight": "node scripts/preflight.js",
+    "migrate": "node -e \"require('./src/db').migrate(); console.log('migrated')\"",
+    "run-once": "node src/scripts/run-once.js",
+    "deploy": "node scripts/deploy/deploy.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "playwright": "1.49.1",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}
