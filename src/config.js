@@ -75,6 +75,10 @@ const config = {
     // sticky residential IP maps 1:1 to one browsing session (rotate ~every 3 min).
     sessionMinMs: int(process.env.SESSION_MIN_SECONDS, 120) * 1000,
     sessionMaxMs: int(process.env.SESSION_MAX_SECONDS, 180) * 1000,
+    // Stage entry as a real ad click via the referrer page (Referer + Sec-Fetch-Site coherent).
+    // Only enable when REFERER_BASE actually serves (<400); otherwise a clean direct entry (no
+    // forged Referer) is used so Sec-Fetch-Site: none stays consistent.
+    referrerClick: bool(process.env.REFERRER_CLICK, false),
   },
   deploy: {
     domain: process.env.DEPLOY_DOMAIN || 'service.layout.ai',

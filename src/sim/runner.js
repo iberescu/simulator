@@ -60,32 +60,37 @@ function resolveEntry(site, strategy, links) {
 async function enterSite(page, referer, entryUrl) {
   const t = config.sim.navTimeoutMs;
   const targetHost = new URL(entryUrl).host;
-  // Preferred path: only if the referrer page actually serves (status < 400). Loading it and
-  // clicking through makes Referer + Sec-Fetch-Site + Sec-Fetch-User: ?1 mutually coherent.
-  try {
-    const resp = await page.goto(referer, { waitUntil: 'domcontentloaded', timeout: Math.min(t, 20000) });
-    if (resp && resp.status() < 400) {
-      await page.evaluate((u) => {
-        const a = document.createElement('a');
-        a.id = '__entry';
-        a.href = u;
-        a.referrerPolicy = 'unsafe-url'; // keep the full campaign referer URL (cid/src)
-        a.textContent = 'Continue';
-        a.style.cssText = 'position:fixed;left:8px;top:8px;z-index:2147483647';
-        document.body.appendChild(a);
-      }, entryUrl);
-      await Promise.all([
-        page.waitForURL((u) => { try { return new URL(u).host === targetHost; } catch { return false; } }, { timeout: t }),
-        page.click('#__entry', { timeout: 8000 }), // trusted gesture -> Sec-Fetch-User: ?1
-      ]);
-      return; // landed via a real click: coherent referer + fetch-metadata
-    }
-  } catch { /* referrer down/unreachable -> clean direct entry below */ }
-  // Fallback: a clean direct navigation with NO forged Referer, so Sec-Fetch-Site: none is coherent
-  // (a referrer-stripped paid click / direct visit). Reset first so a failed referrer navigation
-  // can't interrupt this goto. Attribution still rides on the utm_source + cid query params.
-  try { await page.goto('about:blank'); } catch { /* ignore */ }
-  await page.goto(entryUrl, { waitUntil: 'domcontentloaded', timeout: t });
+  // Optional realistic ad-click: load the referrer page and click through, so Referer +
+  // Sec-Fetch-Site (cross-site) + Sec-Fetch-User (?1) are coherent. Enabled only when the referrer
+  // actually serves (REFERRER_CLICK=true), since loading a dead referrer would break entry.
+  if (config.sim.referrerClick && referer) {
+    try {
+      const resp = await page.goto(referer, { waitUntil: 'domcontentloaded', timeout: Math.min(t, 20000) });
+      if (resp && resp.status() < 400) {
+        await page.evaluate((u) => {
+          const a = document.createElement('a');
+          a.id = '__entry';
+          a.href = u;
+          a.referrerPolicy = 'unsafe-url'; // keep the full campaign referer URL (cid/src)
+          a.textContent = 'Continue';
+          a.style.cssText = 'position:fixed;left:8px;top:8px;z-index:2147483647';
+          document.body.appendChild(a);
+        }, entryUrl);
+        await Promise.all([
+          page.waitForURL((u) => { try { return new URL(u).host === targetHost; } catch { return false; } }, { timeout: t }),
+          page.click('#__entry', { timeout: 8000 }), // trusted gesture -> Sec-Fetch-User: ?1
+        ]);
+        if (new URL(page.url()).host === targetHost) return;
+      }
+    } catch { /* fall through to clean direct entry */ }
+  }
+  // Clean direct entry: no forged Referer, so Sec-Fetch-Site: none stays coherent (a referrer-
+  // stripped paid click / direct visit). Attribution rides on the utm_source + cid query params.
+  // Retry once if a prior failed navigation left the page mid-flight.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try { await page.goto(entryUrl, { waitUntil: 'domcontentloaded', timeout: t }); return; }
+    catch (e) { if (attempt === 1 || !/interrupted by another navigation/i.test(e.message)) throw e; }
+  }
 }
 
 async function runVisit({ site, strategy, links, runId }) {
