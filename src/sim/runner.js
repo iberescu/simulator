@@ -3,9 +3,10 @@ const crypto = require('crypto');
 const config = require('../config');
 const db = require('../db');
 const log = require('../logger').child({ mod: 'runner' });
-const { newVisitContext } = require('./browser');
+const { newVisitContext, applyUaOverride } = require('./browser');
 const { pickUserAgent } = require('./useragents');
 const { proxyRotator } = require('../proxy/rotator');
+const forwarder = require('../proxy/forwarder');
 const { buildIdentity } = require('../data/personas');
 const emailMod = require('../identity/email');
 const behaviors = require('./behaviors');
@@ -85,9 +86,18 @@ async function runVisit({ site, strategy, links, runId }) {
 
   const startedAt = Date.now();
   let ctx = null;
+  let fwd = null;
   try {
-    ctx = await newVisitContext(fp, proxy);
+    // Chromium drops the proxy username params, so route via a local forwarder that injects the
+    // full Oxylabs username (cc-US + sticky sessid) upstream. Falls back to the raw proxy if needed.
+    let ctxProxy = proxy;
+    if (proxy && proxy.username) {
+      fwd = await forwarder.open(proxy);
+      if (fwd) ctxProxy = { server: fwd };
+    }
+    ctx = await newVisitContext(fp, ctxProxy);
     const page = await ctx.newPage();
+    await applyUaOverride(page, fp); // coherent UA + client hints before any navigation
     await page.goto(entryUrl, { referer, waitUntil: 'domcontentloaded' });
     const res = await behaviors.executeStrategy(page, { site, strategy, links, identity, cid, vlog, sessionTargetMs });
     const conv = detectConversion(res.actions);
@@ -111,6 +121,7 @@ async function runVisit({ site, strategy, links, runId }) {
     return { ok: false, cid, visitId: visit.id, error: e.message };
   } finally {
     if (ctx) await ctx.close().catch(() => {});
+    if (fwd) await forwarder.close(fwd);
   }
 }
 
