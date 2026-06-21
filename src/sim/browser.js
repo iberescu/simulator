@@ -55,9 +55,11 @@ async function applyUaOverride(page, fp) {
   if (!fp || !fp.uaMetadata) return;
   try {
     const client = await page.context().newCDPSession(page);
+    // Note: do NOT set acceptLanguage here — the context already sends Accept-Language via
+    // extraHTTPHeaders. Setting it in both places makes Chromium emit a malformed
+    // "en-US,en;q=0.9;q=0.9" (a clear bot tell).
     await client.send('Emulation.setUserAgentOverride', {
       userAgent: fp.userAgent,
-      acceptLanguage: `${fp.locale},en;q=0.9`,
       platform: fp.uaMetadata.platform,
       userAgentMetadata: fp.uaMetadata,
     });

@@ -53,6 +53,30 @@ function resolveEntry(site, strategy, links) {
   return hit || site.url;
 }
 
+// Enter the target the way a real ad click does: load the referrer page, then click a link to the
+// landing URL. This makes Referer + Sec-Fetch-Site (cross-site) + Sec-Fetch-User (?1) mutually
+// consistent — unlike goto({referer}), which sends a Referer but Sec-Fetch-Site: none (a bot tell).
+// Falls back to a direct navigation if the referrer page can't be loaded.
+async function enterSite(page, referer, entryUrl) {
+  const t = config.sim.navTimeoutMs;
+  try {
+    await page.goto(referer, { waitUntil: 'domcontentloaded', timeout: t });
+    await page.evaluate((u) => {
+      const a = document.createElement('a');
+      a.id = '__entry';
+      a.href = u;
+      a.referrerPolicy = 'unsafe-url'; // send the full campaign referer URL (keeps cid/src)
+      a.textContent = 'Continue';
+      a.style.cssText = 'position:fixed;left:8px;top:8px;z-index:2147483647';
+      document.body.appendChild(a);
+    }, entryUrl);
+    await page.click('#__entry', { timeout: 8000 }).catch(() => {}); // trusted gesture -> Sec-Fetch-User: ?1
+    await page.waitForLoadState('domcontentloaded', { timeout: t }).catch(() => {});
+    if (new URL(page.url()).host === new URL(entryUrl).host) return;
+  } catch { /* fall back */ }
+  await page.goto(entryUrl, { referer, waitUntil: 'domcontentloaded', timeout: t });
+}
+
 async function runVisit({ site, strategy, links, runId }) {
   const cid = shortId();
   const fp = pickUserAgent(strategy.device);
@@ -98,7 +122,7 @@ async function runVisit({ site, strategy, links, runId }) {
     ctx = await newVisitContext(fp, ctxProxy);
     const page = await ctx.newPage();
     await applyUaOverride(page, fp); // coherent UA + client hints before any navigation
-    await page.goto(entryUrl, { referer, waitUntil: 'domcontentloaded' });
+    await enterSite(page, referer, entryUrl);
     const res = await behaviors.executeStrategy(page, { site, strategy, links, identity, cid, vlog, sessionTargetMs });
     const conv = detectConversion(res.actions);
     db.finishVisit(visit.id, {
