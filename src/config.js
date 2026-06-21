@@ -10,6 +10,7 @@ const int = (v, def) => {
   return Number.isFinite(n) ? n : def;
 };
 const list = (v) => String(v || '').split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+const hostOf = (u, def) => { try { return new URL(u).hostname; } catch { return def; } };
 
 const config = {
   port: int(process.env.PORT, 8080),
@@ -59,6 +60,8 @@ const config = {
     dailyVisits: int(process.env.DAILY_VISITS, 20),
     convertingVisits: int(process.env.CONVERTING_VISITS, 5),
     refererBase: (process.env.REFERER_BASE || 'https://leadmaker.ai').replace(/\/+$/, ''),
+    // utm_source defaults to the referer host so the campaign tag and the Referer stay in sync.
+    utmSource: process.env.UTM_SOURCE || hostOf(process.env.REFERER_BASE || 'https://leadmaker.ai', 'leadmaker.ai'),
     appendUtm: bool(process.env.APPEND_UTM, true),
     submitForms: bool(process.env.SUBMIT_FORMS, true),
     completePayment: bool(process.env.COMPLETE_PAYMENT, false),

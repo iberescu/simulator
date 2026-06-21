@@ -165,6 +165,7 @@ function buildRemoteEnv(apiKey) {
     `DAILY_VISITS=${config.sim.dailyVisits}`,
     `CONVERTING_VISITS=${config.sim.convertingVisits}`,
     `REFERER_BASE=${config.sim.refererBase}`,
+    `REFERRER_CLICK=${config.sim.referrerClick}`,
     `APPEND_UTM=${config.sim.appendUtm}`,
     `SUBMIT_FORMS=${config.sim.submitForms}`,
     `COMPLETE_PAYMENT=${config.sim.completePayment}`,

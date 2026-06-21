@@ -110,7 +110,7 @@ async function runVisit({ site, strategy, links, runId }) {
   let entryUrl = resolveEntry(site, strategy, links);
   if (config.sim.appendUtm) {
     entryUrl = appendQuery(entryUrl, {
-      utm_source: 'leadmaker.ai', utm_medium: 'campaign', utm_campaign: 'golive', cid,
+      utm_source: config.sim.utmSource, utm_medium: 'campaign', utm_campaign: 'golive', cid,
     });
   }
 
