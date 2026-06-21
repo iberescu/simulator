@@ -49,6 +49,11 @@ const config = {
     list: list(process.env.PROXY_LIST),
     rotateMinutes: int(process.env.PROXY_ROTATE_MINUTES, 10),
     sessionParam: process.env.PROXY_SESSION_PARAM || '',
+    // Residential geo-targeting + sticky sessions (Oxylabs convention:
+    // customer-USER-cc-US-sessid-<id>-sesstime-<minutes>).
+    country: (process.env.PROXY_COUNTRY || '').trim().toUpperCase(),
+    sessionMinutes: int(process.env.PROXY_SESSION_MINUTES, 0), // Oxylabs `sesstime`: how long an IP is held
+    perSession: bool(process.env.PROXY_PER_SESSION, false),    // true = fresh sticky IP per visit (vs time-bucketed)
   },
   sim: {
     dailyVisits: int(process.env.DAILY_VISITS, 20),
@@ -66,6 +71,10 @@ const config = {
     strategyTtlHours: int(process.env.STRATEGY_TTL_HOURS, 24),
     maxStepsPerVisit: int(process.env.MAX_STEPS_PER_VISIT, 14),
     maxVisitMs: int(process.env.MAX_VISIT_MS, 210000),
+    // Target dwell per visit: each session lasts a random duration in [min, max] so the
+    // sticky residential IP maps 1:1 to one browsing session (rotate ~every 3 min).
+    sessionMinMs: int(process.env.SESSION_MIN_SECONDS, 120) * 1000,
+    sessionMaxMs: int(process.env.SESSION_MAX_SECONDS, 180) * 1000,
   },
   deploy: {
     domain: process.env.DEPLOY_DOMAIN || 'service.layout.ai',

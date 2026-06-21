@@ -56,7 +56,11 @@ async function runVisit({ site, strategy, links, runId }) {
   const cid = shortId();
   const fp = pickUserAgent(strategy.device);
   if (site.timezone) fp.timezoneId = site.timezone; // emulate a visitor in the site's local timezone
-  const proxy = proxyRotator.get();
+  // One sticky residential IP per visit (seeded by cid); a fresh IP for the next session.
+  const proxy = proxyRotator.get({ session: cid });
+  // Each session lasts a random 2-3 min so it maps 1:1 to one sticky proxy IP.
+  const { sessionMinMs, sessionMaxMs } = config.sim;
+  const sessionTargetMs = sessionMinMs + Math.floor(Math.random() * (Math.max(sessionMinMs, sessionMaxMs) - sessionMinMs + 1));
   const identity = buildIdentity();
   const ev = await emailMod.generateVerified(identity);
   identity.email = ev.email;
@@ -85,7 +89,7 @@ async function runVisit({ site, strategy, links, runId }) {
     ctx = await newVisitContext(fp, proxy);
     const page = await ctx.newPage();
     await page.goto(entryUrl, { referer, waitUntil: 'domcontentloaded' });
-    const res = await behaviors.executeStrategy(page, { site, strategy, links, identity, cid, vlog });
+    const res = await behaviors.executeStrategy(page, { site, strategy, links, identity, cid, vlog, sessionTargetMs });
     const conv = detectConversion(res.actions);
     db.finishVisit(visit.id, {
       durationMs: Date.now() - startedAt,

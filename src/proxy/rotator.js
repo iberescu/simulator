@@ -1,13 +1,19 @@
 'use strict';
+const crypto = require('crypto');
 const config = require('./../config');
 const log = require('./../logger').child({ mod: 'proxy' });
 
 /*
  * Rotating-proxy resolver.
- *  - Mode A (single endpoint): one PROXY_SERVER with optional sticky-session injection.
- *      A new "session" id is derived every PROXY_ROTATE_MINUTES; if PROXY_SESSION_PARAM is set
- *      it is appended to the username as `-<param>-<session>` (the convention used by most
- *      residential providers: e.g. user-session-abc123). This rotates the exit IP on schedule.
+ *  - Mode A (single endpoint): one PROXY_SERVER with optional geo + sticky-session injection.
+ *      The username is composed using the residential-provider convention (Oxylabs et al.):
+ *        customer-USER-cc-<COUNTRY>-<sessionParam>-<session>-sesstime-<minutes>
+ *      e.g. customer-iberescu-cc-US-sessid-ab12cd-sesstime-3
+ *      * PROXY_COUNTRY pins the exit country (e.g. US).
+ *      * PROXY_SESSION_MINUTES (Oxylabs `sesstime`) is how long the same IP is held.
+ *      * PROXY_PER_SESSION=true gives each visit its own sticky IP (a fresh `session` seed per
+ *        get()); otherwise the session id is derived from a PROXY_ROTATE_MINUTES time bucket and
+ *        shared by all concurrent visits in that window.
  *  - Mode B (list): PROXY_LIST of full proxy URLs, rotated by the same time bucket.
  *  - Disabled: returns null -> Playwright connects directly. (Fine for local testing.)
  */
@@ -25,26 +31,38 @@ class ProxyRotator {
     return Math.floor(now / ms);
   }
 
+  // Compose the provider username with optional country / sticky-session / session-time params.
+  buildUsername(session) {
+    let username = this.cfg.username;
+    if (!username) return undefined;
+    if (this.cfg.country) username += `-cc-${this.cfg.country}`;
+    if (this.cfg.sessionParam && session) username += `-${this.cfg.sessionParam}-${session}`;
+    if (this.cfg.sessionMinutes > 0) username += `-sesstime-${this.cfg.sessionMinutes}`;
+    return username;
+  }
+
   // Returns a Playwright proxy object { server, username?, password?, label } or null.
-  get(now = Date.now()) {
+  // opts.session: a seed (e.g. the visit cid) so one browsing session keeps one sticky IP.
+  get(opts = {}) {
     if (!this.enabled()) return null;
-    const bucket = this.bucket(now);
+    const now = opts.now || Date.now();
 
     if (this.cfg.list && this.cfg.list.length) {
-      const entry = this.cfg.list[bucket % this.cfg.list.length];
-      return this.parseEntry(entry, bucket);
+      const bucket = this.bucket(now);
+      return this.parseEntry(this.cfg.list[bucket % this.cfg.list.length], bucket);
     }
 
-    const session = `s${bucket.toString(36)}`;
-    let username = this.cfg.username || undefined;
-    if (this.cfg.sessionParam && username) {
-      username = `${username}-${this.cfg.sessionParam}-${session}`;
-    }
+    // perSession => a fresh sticky IP per visit; otherwise a time-bucketed IP shared by all
+    // visits within the current PROXY_ROTATE_MINUTES window.
+    const session = this.cfg.perSession
+      ? (opts.session || crypto.randomBytes(6).toString('hex'))
+      : `s${this.bucket(now).toString(36)}`;
+    const host = this.cfg.server.replace(/^https?:\/\//, '');
     return {
       server: this.cfg.server,
-      username,
+      username: this.buildUsername(session),
       password: this.cfg.password || undefined,
-      label: `${this.cfg.server}#${session}`,
+      label: `${host}#${this.cfg.country || 'any'}/${session}`,
     };
   }
 

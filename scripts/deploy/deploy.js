@@ -156,6 +156,9 @@ function buildRemoteEnv(apiKey) {
     `PROXY_LIST=${config.proxy.list.join(',')}`,
     `PROXY_ROTATE_MINUTES=${config.proxy.rotateMinutes}`,
     `PROXY_SESSION_PARAM=${config.proxy.sessionParam}`,
+    `PROXY_COUNTRY=${config.proxy.country}`,
+    `PROXY_SESSION_MINUTES=${config.proxy.sessionMinutes}`,
+    `PROXY_PER_SESSION=${config.proxy.perSession}`,
     '',
     `DAILY_VISITS=${config.sim.dailyVisits}`,
     `CONVERTING_VISITS=${config.sim.convertingVisits}`,
@@ -165,6 +168,8 @@ function buildRemoteEnv(apiKey) {
     `COMPLETE_PAYMENT=${config.sim.completePayment}`,
     `EMAIL_DOMAINS=${config.sim.emailDomains.join(',')}`,
     `MAX_CONCURRENT_VISITS=${config.sim.maxConcurrentVisits}`,
+    `SESSION_MIN_SECONDS=${Math.round(config.sim.sessionMinMs / 1000)}`,
+    `SESSION_MAX_SECONDS=${Math.round(config.sim.sessionMaxMs / 1000)}`,
     'HEADLESS=true',
     'SCHEDULER_ENABLED=true',
   ];

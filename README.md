@@ -141,24 +141,28 @@ If `API_KEY` is empty the API is open (dev only).
 
 ## Rotating proxy
 
-No proxy credentials were supplied, so proxying is **off by default** (direct connection). To enable a
-rotating residential/datacenter proxy, set in `.env`:
+To enable a rotating residential/datacenter proxy, set in `.env`. The active production config
+uses **Oxylabs residential, USA only, with a fresh sticky IP per browsing session**:
 
 ```bash
-# Single endpoint with sticky sessions that rotate every PROXY_ROTATE_MINUTES:
 PROXY_ENABLED=true
-PROXY_SERVER=http://gate.yourprovider.com:7000
-PROXY_USERNAME=customer-zone-residential
+PROXY_SERVER=http://pr.oxylabs.io:7777
+PROXY_USERNAME=customer-<user>   # the rotator appends -cc-US-sessid-<id>-sesstime-3
 PROXY_PASSWORD=secret
-PROXY_SESSION_PARAM=session     # provider keyword; we append -session-<id>, rotated on the interval
-PROXY_ROTATE_MINUTES=10
+PROXY_SESSION_PARAM=sessid       # provider sticky-session keyword
+PROXY_COUNTRY=US                 # exit country (-cc-US)
+PROXY_SESSION_MINUTES=3          # Oxylabs `sesstime`: how long one IP is held
+PROXY_PER_SESSION=true           # one sticky IP per visit (fresh IP next session)
+PROXY_ROTATE_MINUTES=3           # time-bucket interval when PROXY_PER_SESSION=false
 
 # …or a list of full proxy URLs, rotated by time bucket:
 PROXY_LIST=http://user:pass@host1:port,http://user:pass@host2:port
 ```
 
-Works with Bright Data, Decodo/Smartproxy, Oxylabs, IPRoyal, etc. The exit IP rotates on the
-`PROXY_ROTATE_MINUTES` schedule (or per list entry).
+Each visit seeds its `sessid` from the visit id, so one browsing session keeps one US residential
+IP for the whole session; the next session gets a new IP. Combined with a randomised 2–3 min session
+length (`SESSION_MIN_SECONDS`/`SESSION_MAX_SECONDS`), the exit IP effectively rotates ~every 3 minutes.
+Also works with Bright Data, Decodo/Smartproxy, IPRoyal, etc.
 
 ---
 
@@ -171,6 +175,12 @@ Works with Bright Data, Decodo/Smartproxy, Oxylabs, IPRoyal, etc. The exit IP ro
 | `GEMINI_API_KEY` / `GEMINI_MODEL` | — / `gemini-2.5-flash` | Strategy synthesis. |
 | `CF_ACCOUNT_ID` / `CF_API_TOKEN` | — | Cloudflare Browser-Rendering crawl + DNS. Falls back to direct fetch if absent/invalid. |
 | `DIGITALOCEAN_TOKEN` | — | Deploy only. |
+| `PROXY_ENABLED` / `PROXY_SERVER` | `false` / — | Enable proxying; residential endpoint (e.g. `http://pr.oxylabs.io:7777`). |
+| `PROXY_USERNAME` / `PROXY_PASSWORD` | — | Provider credentials; username is the base (`customer-<user>`). |
+| `PROXY_COUNTRY` | _(empty)_ | Exit country, appended as `-cc-<COUNTRY>` (e.g. `US`). |
+| `PROXY_SESSION_PARAM` / `PROXY_SESSION_MINUTES` | — / `0` | Sticky-session keyword (`sessid`) and `sesstime` minutes. |
+| `PROXY_PER_SESSION` | `false` | `true` = fresh sticky IP per visit; `false` = time-bucketed by `PROXY_ROTATE_MINUTES`. |
+| `SESSION_MIN_SECONDS` / `SESSION_MAX_SECONDS` | `120` / `180` | Random per-visit dwell window (one IP per session). |
 | `DAILY_VISITS` | `20` | Visits/day per site. |
 | `CONVERTING_VISITS` | `5` | Converting visits/day (randomised 4–5). |
 | `REFERER_BASE` | `https://ads.layout.ai` | Referer host. |

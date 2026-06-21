@@ -336,7 +336,9 @@ async function executeStrategy(page, opts) {
   const log = opts.vlog || baseLog;
   const actions = [];
   let pagesVisited = 1;
-  const deadline = Date.now() + config.sim.maxVisitMs;
+  // Run the session for its target duration (2-3 min), capped by the hard maxVisitMs safety limit.
+  const sessionMs = Math.min(opts.sessionTargetMs || config.sim.maxVisitMs, config.sim.maxVisitMs);
+  const deadline = Date.now() + sessionMs;
   const rec = (action, ok, detail) => actions.push({ action, ok, detail, t: new Date().toISOString() });
 
   await h.think(800, 2200);
@@ -366,9 +368,15 @@ async function executeStrategy(page, opts) {
     await h.think(700, 2600);
   }
 
-  // brief closing dwell
-  await h.sleep(h.randInt(1500, 5000));
-  log.debug('strategy executed', { pagesVisited, actions: actions.length });
+  // Closing dwell: if the planned steps finished early, keep reading/scrolling until the session
+  // reaches its target duration, so each visit fills its 2-3 min window (one sticky proxy IP).
+  while (Date.now() < deadline - 2000) {
+    await h.humanScroll(page, { steps: h.randInt(1, 2) }).catch(() => {});
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await h.think(1200, Math.min(6000, Math.max(1300, remaining)));
+  }
+  log.debug('strategy executed', { pagesVisited, actions: actions.length, sessionMs });
   return { actions, pagesVisited };
 }
 
