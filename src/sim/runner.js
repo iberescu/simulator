@@ -59,22 +59,33 @@ function resolveEntry(site, strategy, links) {
 // Falls back to a direct navigation if the referrer page can't be loaded.
 async function enterSite(page, referer, entryUrl) {
   const t = config.sim.navTimeoutMs;
+  const targetHost = new URL(entryUrl).host;
+  // Preferred path: only if the referrer page actually serves (status < 400). Loading it and
+  // clicking through makes Referer + Sec-Fetch-Site + Sec-Fetch-User: ?1 mutually coherent.
   try {
-    await page.goto(referer, { waitUntil: 'domcontentloaded', timeout: t });
-    await page.evaluate((u) => {
-      const a = document.createElement('a');
-      a.id = '__entry';
-      a.href = u;
-      a.referrerPolicy = 'unsafe-url'; // send the full campaign referer URL (keeps cid/src)
-      a.textContent = 'Continue';
-      a.style.cssText = 'position:fixed;left:8px;top:8px;z-index:2147483647';
-      document.body.appendChild(a);
-    }, entryUrl);
-    await page.click('#__entry', { timeout: 8000 }).catch(() => {}); // trusted gesture -> Sec-Fetch-User: ?1
-    await page.waitForLoadState('domcontentloaded', { timeout: t }).catch(() => {});
-    if (new URL(page.url()).host === new URL(entryUrl).host) return;
-  } catch { /* fall back */ }
-  await page.goto(entryUrl, { referer, waitUntil: 'domcontentloaded', timeout: t });
+    const resp = await page.goto(referer, { waitUntil: 'domcontentloaded', timeout: Math.min(t, 20000) });
+    if (resp && resp.status() < 400) {
+      await page.evaluate((u) => {
+        const a = document.createElement('a');
+        a.id = '__entry';
+        a.href = u;
+        a.referrerPolicy = 'unsafe-url'; // keep the full campaign referer URL (cid/src)
+        a.textContent = 'Continue';
+        a.style.cssText = 'position:fixed;left:8px;top:8px;z-index:2147483647';
+        document.body.appendChild(a);
+      }, entryUrl);
+      await Promise.all([
+        page.waitForURL((u) => { try { return new URL(u).host === targetHost; } catch { return false; } }, { timeout: t }),
+        page.click('#__entry', { timeout: 8000 }), // trusted gesture -> Sec-Fetch-User: ?1
+      ]);
+      return; // landed via a real click: coherent referer + fetch-metadata
+    }
+  } catch { /* referrer down/unreachable -> clean direct entry below */ }
+  // Fallback: a clean direct navigation with NO forged Referer, so Sec-Fetch-Site: none is coherent
+  // (a referrer-stripped paid click / direct visit). Reset first so a failed referrer navigation
+  // can't interrupt this goto. Attribution still rides on the utm_source + cid query params.
+  try { await page.goto('about:blank'); } catch { /* ignore */ }
+  await page.goto(entryUrl, { waitUntil: 'domcontentloaded', timeout: t });
 }
 
 async function runVisit({ site, strategy, links, runId }) {
