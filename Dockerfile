@@ -13,6 +13,7 @@ RUN npm ci --omit=dev
 # App source
 COPY src ./src
 COPY scripts ./scripts
+COPY config ./config
 
 RUN mkdir -p /app/data && chown -R pwuser:pwuser /app
 USER pwuser

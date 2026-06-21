@@ -130,7 +130,7 @@ function makeTarball() {
   const r = sh('tar', ['czf', out, '--exclude=id_ed25519*', '--exclude=scripts/deploy/.ssh',
     'package.json', 'package-lock.json', 'Dockerfile',
     'docker-compose.yml', 'docker-compose.prod.yml', 'Caddyfile',
-    'src', 'scripts'], { cwd: ROOT });
+    'src', 'scripts', 'config'], { cwd: ROOT });
   if (r.status !== 0) die(`tar failed: ${r.stderr}`);
   return out;
 }
