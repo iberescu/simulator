@@ -11,6 +11,7 @@ const int = (v, def) => {
 };
 const list = (v) => String(v || '').split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
 const hostOf = (u, def) => { try { return new URL(u).hostname; } catch { return def; } };
+const intOpt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; }; // null => unset
 
 const config = {
   port: int(process.env.PORT, 8080),
@@ -58,6 +59,10 @@ const config = {
   },
   sim: {
     dailyVisits: int(process.env.DAILY_VISITS, 20),
+    // The daily visitor count is randomized per day within [min, max]. If unset, the range defaults
+    // to roughly ±40% of DAILY_VISITS so each day differs.
+    dailyVisitsMin: intOpt(process.env.DAILY_VISITS_MIN),
+    dailyVisitsMax: intOpt(process.env.DAILY_VISITS_MAX),
     convertingVisits: int(process.env.CONVERTING_VISITS, 5),
     refererBase: (process.env.REFERER_BASE || 'https://leadmaker.ai').replace(/\/+$/, ''),
     // utm_source defaults to the referer host so the campaign tag and the Referer stay in sync.

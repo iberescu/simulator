@@ -52,8 +52,18 @@ class Limiter {
 const limiter = new Limiter(config.sim.maxConcurrentVisits);
 
 // ---- plan ----
+// A different number of visitors each day: pick a random daily total in [min, max] (defaults to
+// ~±40% of the configured baseline). Because slots are then scattered across the day by
+// weightedHour(), each hourly run also fires a random number of visits.
+function dailyTotal(site) {
+  const base = site.daily_visits || config.sim.dailyVisits;
+  const lo = config.sim.dailyVisitsMin != null ? config.sim.dailyVisitsMin : Math.max(1, Math.round(base * 0.6));
+  const hi = config.sim.dailyVisitsMax != null ? config.sim.dailyVisitsMax : Math.max(lo, Math.round(base * 1.4));
+  return randInt(Math.min(lo, hi), Math.max(lo, hi));
+}
+
 function buildPlan(site) {
-  const total = site.daily_visits || config.sim.dailyVisits;
+  const total = dailyTotal(site);
   const cv = site.converting_visits || config.sim.convertingVisits;
   const convertTarget = Math.min(total, randInt(Math.max(1, cv - 1), cv)); // 4-5 by default
   const slots = [];

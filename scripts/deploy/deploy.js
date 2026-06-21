@@ -163,6 +163,8 @@ function buildRemoteEnv(apiKey) {
     `PROXY_PER_SESSION=${config.proxy.perSession}`,
     '',
     `DAILY_VISITS=${config.sim.dailyVisits}`,
+    `DAILY_VISITS_MIN=${config.sim.dailyVisitsMin != null ? config.sim.dailyVisitsMin : ''}`,
+    `DAILY_VISITS_MAX=${config.sim.dailyVisitsMax != null ? config.sim.dailyVisitsMax : ''}`,
     `CONVERTING_VISITS=${config.sim.convertingVisits}`,
     `REFERER_BASE=${config.sim.refererBase}`,
     `REFERRER_CLICK=${config.sim.referrerClick}`,
